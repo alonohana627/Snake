@@ -6,41 +6,52 @@ namespace snake::game {
 
 namespace {
 
-constexpr float kPlayerSize = 50.0f;   // pixels
-constexpr float kPlayerSpeed = 450.0f; // pixels per second
-
-// Every tick is the same length, so the distance per tick is a constant: 450 / 60 = 7.5 px.
-constexpr float kPlayerStep = kPlayerSpeed / kTicksPerSecond;
-
-constexpr core::Color kPlayerColor{.r = 0.2f, .g = 0.8f, .b = 0.3f, .a = 1.0f};
+constexpr Cell kStartHead{kBoardWidth / 2, kBoardHeight / 2};
+constexpr int kStartLength = 5;
+constexpr Direction kStartDirection = Direction::Right;
 
 } // namespace
 
-Game::Game(core::Size area)
-    : m_player{
-          .x = (static_cast<float>(area.width) - kPlayerSize) / 2.0f,
-          .y = (static_cast<float>(area.height) - kPlayerSize) / 2.0f,
-          .width = kPlayerSize,
-          .height = kPlayerSize,
-      }
+namespace { // helpers
+
+Snake _startingSnake()
+{
+    return Snake(kStartHead, kStartLength, kStartDirection);
+}
+
+} // namespace
+
+Game::Game()
+    : m_snake(_startingSnake())
 {
 }
 
-void Game::tick(const Input& input, core::Size area)
+void Game::turn(Direction direction)
 {
-    m_player.x += input.moveX * kPlayerStep;
-    m_player.y += input.moveY * kPlayerStep;
-
-    // Keep it inside the play area.
-    const float maxX = std::max(0.0f, static_cast<float>(area.width) - m_player.width);
-    const float maxY = std::max(0.0f, static_cast<float>(area.height) - m_player.height);
-    m_player.x = std::clamp(m_player.x, 0.0f, maxX);
-    m_player.y = std::clamp(m_player.y, 0.0f, maxY);
+    m_snake.turn(direction);
 }
 
-std::vector<core::ColoredRect> Game::drawList() const
+void Game::tick()
 {
-    return {{.rect = m_player, .color = kPlayerColor}};
+    // No walls yet: leaving one side of the board brings the snake back on the other.
+    m_snake.stepTo(wrap(m_snake.nextHead(), kBoardWidth, kBoardHeight));
+
+    // The snake must not run into itself.
+    if (m_snake.hasBittenItself()) {
+        startOver();
+        return;
+    }
+
+    ++m_ticksSurvived;
+    m_bestScore = std::max(m_bestScore, score());
+}
+
+// Back to the start: a fresh snake (no queued turns either) and a zero score.
+// The best score is kept.
+void Game::startOver()
+{
+    m_snake = _startingSnake();
+    m_ticksSurvived = 0;
 }
 
 } // namespace snake::game

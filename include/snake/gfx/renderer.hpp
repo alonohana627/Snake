@@ -4,7 +4,7 @@
 #include "snake/gfx/device.hpp"
 #include "snake/gfx/frame.hpp"
 #include "snake/gfx/instance.hpp"
-#include "snake/gfx/rect_pipeline.hpp"
+#include "snake/gfx/sprite_pipeline.hpp"
 #include "snake/gfx/surface.hpp"
 #include "snake/gfx/swapchain.hpp"
 
@@ -28,8 +28,8 @@ public:
     Renderer(const Renderer&) = delete;
     Renderer& operator=(const Renderer&) = delete;
 
-    // Draws one frame: a clear background, then the rectangles in order (later ones on top).
-    void drawFrame(std::span<const core::ColoredRect> rects);
+    // Draws one frame: a clear background, then the sprites in order (later ones on top).
+    void drawFrame(std::span<const core::Sprite> sprites);
 
 private:
     // How many frames the CPU may prepare while the GPU is still busy with earlier ones.
@@ -37,7 +37,8 @@ private:
 
     void recreateSwapchain();
     void recordCommands(VkCommandBuffer commandBuffer, std::uint32_t imageIndex,
-                        std::span<const core::ColoredRect> rects) const;
+                        std::span<const core::Sprite> sprites) const;
+    const SpritePipeline& pipelineFor(core::Shape shape) const;
     void submit(const Frame& frame, std::uint32_t imageIndex) const;
     void present(std::uint32_t imageIndex);
 
@@ -49,7 +50,8 @@ private:
     Surface m_surface;
     Device m_device;
     Swapchain m_swapchain;
-    RectPipeline m_rectPipeline;
+    SpritePipeline m_rectPipeline;      // core::Shape::Rect
+    SpritePipeline m_snakeHeadPipeline; // core::Shape::SnakeHead
     std::array<Frame, kFramesInFlight> m_frames;
 
     std::uint64_t m_frameNumber = 0;

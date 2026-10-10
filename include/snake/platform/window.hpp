@@ -5,6 +5,8 @@
 #include <vulkan/vulkan.h>
 
 #include <span>
+#include <string>
+#include <vector>
 
 struct GLFWwindow;
 
@@ -30,11 +32,17 @@ public:
     bool shouldClose() const;
     void close();
 
+    void setTitle(const std::string& title);
+
     void pollEvents(); // handle pending events without waiting
     void waitEvents(); // sleep until an event arrives
 
     bool isMinimized() const;
     bool isKeyDown(Key key) const;
+
+    // Keys pressed since the last call, in the order they were pressed.
+    // Holding a key down counts as one press. Reading them clears the list.
+    std::vector<Key> takePressedKeys();
     core::Size framebufferSize() const; // the drawable area, in pixels
 
     // True once after the drawable area changed size; reading it clears it.
@@ -50,9 +58,11 @@ public:
 
 private:
     static void onFramebufferResized(GLFWwindow* handle, int width, int height);
+    static void onKey(GLFWwindow* handle, int key, int scancode, int action, int mods);
 
     GLFWwindow* m_window = nullptr;
     bool m_resized = false;
+    std::vector<Key> m_pressedKeys;
 };
 
 } // namespace snake::platform

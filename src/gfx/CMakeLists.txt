@@ -4,8 +4,8 @@ snake_add_component(gfx
     device.cpp
     frame.cpp
     instance.cpp
-    rect_pipeline.cpp
     renderer.cpp
+    sprite_pipeline.cpp
     surface.cpp
     swapchain.cpp
 )
@@ -15,11 +15,12 @@ target_link_libraries(snake_gfx
 )
 
 # Shaders: GLSL -> SPIR-V at build time. glslc's "-mfmt=num" writes the SPIR-V as
-# a comma-separated list of numbers, which rect_pipeline.cpp #includes into an array.
+# a comma-separated list of numbers, which sprite_pipeline.cpp #includes into an array.
 # That way the shaders are baked into snake.exe - no files to load at runtime.
 set(SHADERS
-    shaders/rect.vert
+    shaders/sprite.vert
     shaders/rect.frag
+    shaders/snake_head.frag
 )
 foreach(shader IN LISTS SHADERS)
     get_filename_component(name ${shader} NAME)

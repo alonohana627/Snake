@@ -1,5 +1,6 @@
-# Game state and rules. Only core: no windows, no Vulkan - easy to test.
+# The game logic: rules and state only. Depends on nothing - no windows, no
+# Vulkan, not even core's pixel/color types - so it's easy to test.
 snake_add_component(game
     game.cpp
+    snake.cpp
 )
-target_link_libraries(snake_game PUBLIC snake::core)

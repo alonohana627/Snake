@@ -2,19 +2,22 @@ find_package(Vulkan REQUIRED COMPONENTS glslc)
 
 # One static library per component (see cmake/SnakeComponent.cmake).
 #
-#            snake (main.cpp)
-#           /     |        \
-#       game     gfx ----> platform
-#           \     |        /
-#               core
+#   snake (main.cpp)    creates the app and runs it
+#   └── app             main loop, key -> game command, how the game looks
+#       ├── game        the rules - depends on nothing at all
+#       ├── gfx         Vulkan renderer (uses platform for the window's surface)
+#       ├── platform    window + keyboard (GLFW)
+#       └── core        shared types and FixedTimestep (used by app, gfx, platform)
+
 add_subdirectory(core)
 add_subdirectory(platform)
 add_subdirectory(gfx)
 add_subdirectory(game)
+add_subdirectory(app)
 
-# The executable only wires the components together.
+# The executable just creates the app and runs it.
 add_executable(snake
     main.cpp
 )
 snake_set_warnings(snake)
-target_link_libraries(snake PRIVATE snake::core snake::platform snake::gfx snake::game)
+target_link_libraries(snake PRIVATE snake::app)

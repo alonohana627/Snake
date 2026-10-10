@@ -5,8 +5,10 @@
 #include <GLFW/glfw3.h>
 
 #include <cstdint>
+#include <optional>
 #include <print>
 #include <stdexcept>
+#include <utility>
 
 namespace snake::platform {
 
@@ -28,6 +30,19 @@ int _toGlfwKey(Key key)
     case Key::Escape: return GLFW_KEY_ESCAPE;
     }
     return GLFW_KEY_UNKNOWN;
+}
+
+// The reverse of _toGlfwKey. Keys we don't use give std::nullopt.
+std::optional<Key> _fromGlfwKey(int glfwKey)
+{
+    switch (glfwKey) {
+    case GLFW_KEY_UP:     return Key::Up;
+    case GLFW_KEY_DOWN:   return Key::Down;
+    case GLFW_KEY_LEFT:   return Key::Left;
+    case GLFW_KEY_RIGHT:  return Key::Right;
+    case GLFW_KEY_ESCAPE: return Key::Escape;
+    default:              return std::nullopt;
+    }
 }
 
 } // namespace
@@ -54,6 +69,7 @@ Window::Window(int width, int height, const char* title)
     // pointer to it on the GLFW window. (Safe: Window can't be copied or moved.)
     glfwSetWindowUserPointer(m_window, this);
     glfwSetFramebufferSizeCallback(m_window, onFramebufferResized);
+    glfwSetKeyCallback(m_window, onKey);
 }
 
 Window::~Window()
@@ -70,6 +86,11 @@ bool Window::shouldClose() const
 void Window::close()
 {
     glfwSetWindowShouldClose(m_window, GLFW_TRUE);
+}
+
+void Window::setTitle(const std::string& title)
+{
+    glfwSetWindowTitle(m_window, title.c_str());
 }
 
 void Window::pollEvents()
@@ -97,6 +118,11 @@ core::Size Window::framebufferSize() const
     core::Size size;
     glfwGetFramebufferSize(m_window, &size.width, &size.height);
     return size;
+}
+
+std::vector<Key> Window::takePressedKeys()
+{
+    return std::exchange(m_pressedKeys, {});
 }
 
 bool Window::takeResized()
@@ -136,6 +162,20 @@ void Window::onFramebufferResized(GLFWwindow* handle, int /*width*/, int /*heigh
 {
     auto* const window = static_cast<Window*>(glfwGetWindowUserPointer(handle));
     window->m_resized = true;
+}
+
+// GLFW calls this for every key event (from inside pollEvents/waitEvents).
+void Window::onKey(GLFWwindow* handle, int key, int /*scancode*/, int action, int /*mods*/)
+{
+    // action is GLFW_PRESS, GLFW_REPEAT (key held down) or GLFW_RELEASE.
+    // Only the moment a key goes down counts as a press.
+    if (action != GLFW_PRESS) {
+        return;
+    }
+    if (const std::optional<Key> pressed = _fromGlfwKey(key)) {
+        auto* const window = static_cast<Window*>(glfwGetWindowUserPointer(handle));
+        window->m_pressedKeys.push_back(*pressed);
+    }
 }
 
 } // namespace snake::platform

@@ -54,7 +54,8 @@ Renderer::Renderer(platform::Window& window)
     , m_surface(m_instance, window)
     , m_device(m_instance, m_surface)
     , m_swapchain(m_device, m_surface, _toExtent(window.framebufferSize()))
-    , m_rectPipeline(m_device, m_swapchain.format())
+    , m_rectPipeline(m_device, m_swapchain.format(), core::Shape::Rect)
+    , m_snakeHeadPipeline(m_device, m_swapchain.format(), core::Shape::SnakeHead)
     , m_frames{Frame(m_device), Frame(m_device)} // one per frame in flight
 {
 }
@@ -66,7 +67,7 @@ Renderer::~Renderer()
     m_device.waitIdle();
 }
 
-void Renderer::drawFrame(std::span<const core::ColoredRect> rects)
+void Renderer::drawFrame(std::span<const core::Sprite> sprites)
 {
     if (m_window.takeResized()) {
         recreateSwapchain();
@@ -95,7 +96,7 @@ void Renderer::drawFrame(std::span<const core::ColoredRect> rects)
     frame.reset();
 
     // 3. Record, 4. submit, 5. present.
-    recordCommands(frame.commandBuffer(), imageIndex, rects);
+    recordCommands(frame.commandBuffer(), imageIndex, sprites);
     submit(frame, imageIndex);
     present(imageIndex);
 
@@ -112,8 +113,17 @@ void Renderer::recreateSwapchain()
     m_swapchain.recreate(_toExtent(size));
 }
 
+const SpritePipeline& Renderer::pipelineFor(core::Shape shape) const
+{
+    switch (shape) {
+    case core::Shape::Rect:      return m_rectPipeline;
+    case core::Shape::SnakeHead: return m_snakeHeadPipeline;
+    }
+    return m_rectPipeline;
+}
+
 void Renderer::recordCommands(VkCommandBuffer commandBuffer, std::uint32_t imageIndex,
-                              std::span<const core::ColoredRect> rects) const
+                              std::span<const core::Sprite> sprites) const
 {
     const VkImage image = m_swapchain.image(imageIndex);
     const VkExtent2D extent = m_swapchain.extent();
@@ -161,10 +171,16 @@ void Renderer::recordCommands(VkCommandBuffer commandBuffer, std::uint32_t image
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    // Bind once, then one draw per rectangle (each with its own push constants).
-    m_rectPipeline.bind(commandBuffer);
-    for (const core::ColoredRect& coloredRect : rects) {
-        m_rectPipeline.draw(commandBuffer, coloredRect.rect, coloredRect.color, extent);
+    // One draw per sprite, each with its own push constants. Switching pipelines
+    // costs a little, so only bind when the shape differs from the previous sprite.
+    const SpritePipeline* bound = nullptr;
+    for (const core::Sprite& sprite : sprites) {
+        const SpritePipeline& pipeline = pipelineFor(sprite.shape);
+        if (&pipeline != bound) {
+            pipeline.bind(commandBuffer);
+            bound = &pipeline;
+        }
+        pipeline.draw(commandBuffer, sprite, extent);
     }
 
     vkCmdEndRendering(commandBuffer);

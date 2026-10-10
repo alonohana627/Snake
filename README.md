@@ -7,14 +7,15 @@ Toy project. C++26, CMake + Ninja, Vulkan 1.3 + GLFW.
 Each component is a static library (`snake::<name>`), with headers in
 `include/snake/<name>/`, sources in `src/<name>/` and namespace `snake::<name>`.
 
-| Component  | What it does                                   | Uses             |
-|------------|------------------------------------------------|------------------|
-| `core`     | Shared types (`Rect`, `Color`), `FixedTimestep` | -                |
-| `platform` | Window + keyboard (GLFW)                       | core             |
-| `gfx`      | Vulkan renderer, shaders in `src/gfx/shaders/` | core, platform   |
-| `game`     | Game state and rules, fixed tick rate          | core             |
+| Component  | What it does                                                      | Uses                        |
+|------------|-------------------------------------------------------------------|-----------------------------|
+| `game`     | The game logic: board, snake, rules, tick rate                    | nothing                     |
+| `app`      | Everything else around it: main loop, key mapping, how it looks   | game, gfx, platform, core   |
+| `gfx`      | Vulkan renderer, shaders in `src/gfx/shaders/`                    | core, platform              |
+| `platform` | Window + keyboard (GLFW)                                          | core                        |
+| `core`     | Shared types (`Rect`, `Color`), `FixedTimestep`                   | nothing                     |
 
-`src/main.cpp` wires them together: read input, run due game ticks, draw.
+`src/main.cpp` only creates the `app::Application` and runs it.
 
 ## Build
 

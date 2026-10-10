@@ -1,4 +1,4 @@
-#include "snake/gfx/rect_pipeline.hpp"
+#include "snake/gfx/sprite_pipeline.hpp"
 
 #include "snake/gfx/check.hpp"
 #include "snake/gfx/device.hpp"
@@ -11,12 +11,15 @@ namespace snake::gfx {
 
 namespace {
 
-// SPIR-V compiled from src/gfx/shaders at build time (see src/CMakeLists.txt).
-constexpr std::uint32_t kRectVertSpv[] = {
-#include "rect.vert.spv.inc"
+// SPIR-V compiled from src/gfx/shaders at build time (see src/gfx/CMakeLists.txt).
+constexpr std::uint32_t kSpriteVertSpv[] = {
+#include "sprite.vert.spv.inc"
 };
 constexpr std::uint32_t kRectFragSpv[] = {
 #include "rect.frag.spv.inc"
+};
+constexpr std::uint32_t kSnakeHeadFragSpv[] = {
+#include "snake_head.frag.spv.inc"
 };
 
 // Must match the push_constant block in the shaders, byte for byte.
@@ -26,12 +29,14 @@ struct PushConstants {
     float position[2];
     float size[2];
     float screenSize[2];
+    std::int32_t quarterTurns;
 };
 static_assert(offsetof(PushConstants, color) == 0);
 static_assert(offsetof(PushConstants, position) == 16);
 static_assert(offsetof(PushConstants, size) == 24);
 static_assert(offsetof(PushConstants, screenSize) == 32);
-static_assert(sizeof(PushConstants) == 40);
+static_assert(offsetof(PushConstants, quarterTurns) == 40);
+static_assert(sizeof(PushConstants) == 44);
 
 constexpr VkShaderStageFlags kPushConstantStages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
@@ -51,9 +56,19 @@ VkShaderModule _createShaderModule(VkDevice device, std::span<const std::uint32_
     return module;
 }
 
+// Each shape is drawn by its own fragment shader.
+std::span<const std::uint32_t> _fragmentShader(core::Shape shape)
+{
+    switch (shape) {
+    case core::Shape::Rect:      return kRectFragSpv;
+    case core::Shape::SnakeHead: return kSnakeHeadFragSpv;
+    }
+    return kRectFragSpv;
+}
+
 } // namespace
 
-RectPipeline::RectPipeline(const Device& device, VkFormat colorFormat)
+SpritePipeline::SpritePipeline(const Device& device, VkFormat colorFormat, core::Shape shape)
     : m_device(device.handle())
 {
     // The layout says what data the shaders get from outside: here, only push constants.
@@ -69,8 +84,8 @@ RectPipeline::RectPipeline(const Device& device, VkFormat colorFormat)
     };
     check(vkCreatePipelineLayout(m_device, &layoutInfo, nullptr, &m_layout), "vkCreatePipelineLayout");
 
-    const VkShaderModule vertexShader = _createShaderModule(m_device, kRectVertSpv);
-    const VkShaderModule fragmentShader = _createShaderModule(m_device, kRectFragSpv);
+    const VkShaderModule vertexShader = _createShaderModule(m_device, kSpriteVertSpv);
+    const VkShaderModule fragmentShader = _createShaderModule(m_device, _fragmentShader(shape));
 
     const VkPipelineShaderStageCreateInfo stages[] = {
         {
@@ -113,9 +128,17 @@ RectPipeline::RectPipeline(const Device& device, VkFormat colorFormat)
         .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
         .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
     };
-    // No blending: the fragment's color simply replaces what's there.
+    // Alpha blending: new color * alpha + what's already there * (1 - alpha).
+    // Shapes use alpha for their outline (and its soft, anti-aliased edge);
+    // fully opaque pixels (alpha 1) simply replace what's there.
     const VkPipelineColorBlendAttachmentState blendAttachment{
-        .blendEnable = VK_FALSE,
+        .blendEnable = VK_TRUE,
+        .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+        .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        .colorBlendOp = VK_BLEND_OP_ADD,
+        .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+        .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        .alphaBlendOp = VK_BLEND_OP_ADD,
         .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
                         | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
     };
@@ -163,25 +186,27 @@ RectPipeline::RectPipeline(const Device& device, VkFormat colorFormat)
     }
 }
 
-RectPipeline::~RectPipeline()
+SpritePipeline::~SpritePipeline()
 {
     vkDestroyPipeline(m_device, m_pipeline, nullptr);
     vkDestroyPipelineLayout(m_device, m_layout, nullptr);
 }
 
-void RectPipeline::bind(VkCommandBuffer commandBuffer) const
+void SpritePipeline::bind(VkCommandBuffer commandBuffer) const
 {
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 }
 
-void RectPipeline::draw(VkCommandBuffer commandBuffer, const core::Rect& rect, const core::Color& color,
-                        VkExtent2D targetSize) const
+void SpritePipeline::draw(VkCommandBuffer commandBuffer, const core::Sprite& sprite, VkExtent2D targetSize) const
 {
+    const core::Rect& rect = sprite.rect;
+    const core::Color& color = sprite.color;
     const PushConstants pushConstants{
         .color = {color.r, color.g, color.b, color.a},
         .position = {rect.x, rect.y},
         .size = {rect.width, rect.height},
         .screenSize = {static_cast<float>(targetSize.width), static_cast<float>(targetSize.height)},
+        .quarterTurns = sprite.quarterTurns,
     };
     vkCmdPushConstants(commandBuffer, m_layout, kPushConstantStages, 0, sizeof(pushConstants), &pushConstants);
 
