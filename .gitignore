@@ -1,0 +1,40 @@
+# Build output
+build/
+out/
+cmake-build-*/
+
+# CMake (in-source builds / user overrides)
+CMakeCache.txt
+CMakeFiles/
+CMakeUserPresets.json
+compile_commands.json
+Testing/
+
+# Ninja
+.ninja_deps
+.ninja_log
+
+# Compiled artifacts
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dll
+*.dylib
+*.exe
+*.pdb
+*.ilk
+
+# Editors / IDEs
+.vs/
+.vscode/
+.idea/
+.cache/
+*.user
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
