@@ -28,8 +28,13 @@ public:
     Renderer(const Renderer&) = delete;
     Renderer& operator=(const Renderer&) = delete;
 
-    // Draws one frame: a clear background, then the sprites in order (later ones on top).
-    void drawFrame(std::span<const core::Sprite> sprites);
+    // Draws one frame: the sprites in order (later ones on top).
+    //
+    // The sprites are placed on a fixed-size `canvas` (e.g. 1920x1080), not on the
+    // window directly. The canvas is scaled to fill the window as much as it can
+    // without stretching, and centered. If the window's shape differs from the
+    // canvas's, the leftover strips stay black ("letterboxing").
+    void drawFrame(std::span<const core::Sprite> sprites, core::Size canvas);
 
 private:
     // How many frames the CPU may prepare while the GPU is still busy with earlier ones.
@@ -37,7 +42,7 @@ private:
 
     void recreateSwapchain();
     void recordCommands(VkCommandBuffer commandBuffer, std::uint32_t imageIndex,
-                        std::span<const core::Sprite> sprites) const;
+                        std::span<const core::Sprite> sprites, core::Size canvas) const;
     const SpritePipeline& pipelineFor(core::Shape shape) const;
     void submit(const Frame& frame, std::uint32_t imageIndex) const;
     void present(std::uint32_t imageIndex);
@@ -50,8 +55,11 @@ private:
     Surface m_surface;
     Device m_device;
     Swapchain m_swapchain;
-    SpritePipeline m_rectPipeline;      // core::Shape::Rect
-    SpritePipeline m_snakeHeadPipeline; // core::Shape::SnakeHead
+    SpritePipeline m_rectPipeline;       // core::Shape::Rect
+    SpritePipeline m_snakeHeadPipeline;  // core::Shape::SnakeHead
+    SpritePipeline m_foodPipeline;       // core::Shape::Food
+    SpritePipeline m_backgroundPipeline; // core::Shape::Background
+    SpritePipeline m_glyphPipeline;      // core::Shape::Glyph
     std::array<Frame, kFramesInFlight> m_frames;
 
     std::uint64_t m_frameNumber = 0;

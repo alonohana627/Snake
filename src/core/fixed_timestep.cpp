@@ -28,4 +28,9 @@ int FixedTimestep::advance(double now)
     return steps;
 }
 
+void FixedTimestep::setStepSeconds(double stepSeconds)
+{
+    m_stepSeconds = stepSeconds;
+}
+
 } // namespace snake::core

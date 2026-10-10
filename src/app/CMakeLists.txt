@@ -1,8 +1,11 @@
-# Everything around the game logic: the main loop, key -> game command mapping,
-# and how the game looks on screen. Ties all the other components together.
+# Everything around the game logic: the main loop, the menu, key -> game command
+# mapping, and how the game and menu look on screen. Ties all the other components together.
 snake_add_component(app
     application.cpp
     game_view.cpp
+    menu.cpp
+    menu_view.cpp
+    text.cpp
 )
 target_link_libraries(snake_app
     PUBLIC snake::core snake::platform snake::gfx snake::game

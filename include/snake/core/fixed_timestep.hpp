@@ -19,6 +19,10 @@ public:
     // (less than one step) carries over to the next call.
     int advance(double now);
 
+    // Changes the step length from now on (e.g. a faster game). Time already
+    // measured but not yet turned into steps carries over.
+    void setStepSeconds(double stepSeconds);
+
 private:
     double m_stepSeconds;
     double m_maxFrameSeconds;

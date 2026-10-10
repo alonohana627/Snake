@@ -23,7 +23,8 @@ public:
     // Record into a command buffer, between vkCmdBeginRendering and vkCmdEndRendering.
     // Bind once, then draw as many sprites of this shape as you like.
     void bind(VkCommandBuffer commandBuffer) const;
-    void draw(VkCommandBuffer commandBuffer, const core::Sprite& sprite, VkExtent2D targetSize) const;
+    // `canvas`: the size of the space the sprite's rectangle is given in (see Renderer::drawFrame).
+    void draw(VkCommandBuffer commandBuffer, const core::Sprite& sprite, core::Size canvas) const;
 
 private:
     VkDevice m_device = VK_NULL_HANDLE;

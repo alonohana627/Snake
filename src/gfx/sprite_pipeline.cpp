@@ -21,22 +21,35 @@ constexpr std::uint32_t kRectFragSpv[] = {
 constexpr std::uint32_t kSnakeHeadFragSpv[] = {
 #include "snake_head.frag.spv.inc"
 };
+constexpr std::uint32_t kFoodFragSpv[] = {
+#include "food.frag.spv.inc"
+};
+constexpr std::uint32_t kBackgroundFragSpv[] = {
+#include "background.frag.spv.inc"
+};
+constexpr std::uint32_t kGlyphFragSpv[] = {
+#include "glyph.frag.spv.inc"
+};
 
 // Must match the push_constant block in the shaders, byte for byte.
-// GLSL lays it out with std430 rules: vec4 is 16-byte aligned, vec2 is 8-byte aligned.
+// GLSL lays it out with std430 rules: vec4 is 16-byte aligned, vec2 and uvec2 are
+// 8-byte aligned. So `glyph` starts at 48, not 44: GLSL skips 4 bytes, and alignas(8)
+// makes C++ skip the same 4.
 struct PushConstants {
     float color[4];
     float position[2];
     float size[2];
     float screenSize[2];
     std::int32_t quarterTurns;
+    alignas(8) std::uint32_t glyph[2]; // GLSL has no 64-bit ints by default: low 32 bits, high 32 bits
 };
 static_assert(offsetof(PushConstants, color) == 0);
 static_assert(offsetof(PushConstants, position) == 16);
 static_assert(offsetof(PushConstants, size) == 24);
 static_assert(offsetof(PushConstants, screenSize) == 32);
 static_assert(offsetof(PushConstants, quarterTurns) == 40);
-static_assert(sizeof(PushConstants) == 44);
+static_assert(offsetof(PushConstants, glyph) == 48);
+static_assert(sizeof(PushConstants) == 56);
 
 constexpr VkShaderStageFlags kPushConstantStages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
@@ -60,8 +73,11 @@ VkShaderModule _createShaderModule(VkDevice device, std::span<const std::uint32_
 std::span<const std::uint32_t> _fragmentShader(core::Shape shape)
 {
     switch (shape) {
-    case core::Shape::Rect:      return kRectFragSpv;
-    case core::Shape::SnakeHead: return kSnakeHeadFragSpv;
+    case core::Shape::Rect:       return kRectFragSpv;
+    case core::Shape::SnakeHead:  return kSnakeHeadFragSpv;
+    case core::Shape::Food:       return kFoodFragSpv;
+    case core::Shape::Background: return kBackgroundFragSpv;
+    case core::Shape::Glyph:      return kGlyphFragSpv;
     }
     return kRectFragSpv;
 }
@@ -197,7 +213,7 @@ void SpritePipeline::bind(VkCommandBuffer commandBuffer) const
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 }
 
-void SpritePipeline::draw(VkCommandBuffer commandBuffer, const core::Sprite& sprite, VkExtent2D targetSize) const
+void SpritePipeline::draw(VkCommandBuffer commandBuffer, const core::Sprite& sprite, core::Size canvas) const
 {
     const core::Rect& rect = sprite.rect;
     const core::Color& color = sprite.color;
@@ -205,8 +221,9 @@ void SpritePipeline::draw(VkCommandBuffer commandBuffer, const core::Sprite& spr
         .color = {color.r, color.g, color.b, color.a},
         .position = {rect.x, rect.y},
         .size = {rect.width, rect.height},
-        .screenSize = {static_cast<float>(targetSize.width), static_cast<float>(targetSize.height)},
+        .screenSize = {static_cast<float>(canvas.width), static_cast<float>(canvas.height)},
         .quarterTurns = sprite.quarterTurns,
+        .glyph = {static_cast<std::uint32_t>(sprite.glyph), static_cast<std::uint32_t>(sprite.glyph >> 32)},
     };
     vkCmdPushConstants(commandBuffer, m_layout, kPushConstantStages, 0, sizeof(pushConstants), &pushConstants);
 

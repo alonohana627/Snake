@@ -21,6 +21,9 @@ set(SHADERS
     shaders/sprite.vert
     shaders/rect.frag
     shaders/snake_head.frag
+    shaders/food.frag
+    shaders/background.frag
+    shaders/glyph.frag
 )
 foreach(shader IN LISTS SHADERS)
     get_filename_component(name ${shader} NAME)

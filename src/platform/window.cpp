@@ -4,6 +4,8 @@
 // its Vulkan helpers such as glfwCreateWindowSurface.
 #include <GLFW/glfw3.h>
 
+#include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <print>
@@ -28,6 +30,8 @@ int _toGlfwKey(Key key)
     case Key::Left:   return GLFW_KEY_LEFT;
     case Key::Right:  return GLFW_KEY_RIGHT;
     case Key::Escape: return GLFW_KEY_ESCAPE;
+    case Key::Enter:  return GLFW_KEY_ENTER;
+    case Key::F11:    return GLFW_KEY_F11;
     }
     return GLFW_KEY_UNKNOWN;
 }
@@ -36,13 +40,50 @@ int _toGlfwKey(Key key)
 std::optional<Key> _fromGlfwKey(int glfwKey)
 {
     switch (glfwKey) {
-    case GLFW_KEY_UP:     return Key::Up;
-    case GLFW_KEY_DOWN:   return Key::Down;
-    case GLFW_KEY_LEFT:   return Key::Left;
-    case GLFW_KEY_RIGHT:  return Key::Right;
-    case GLFW_KEY_ESCAPE: return Key::Escape;
-    default:              return std::nullopt;
+    case GLFW_KEY_UP:       return Key::Up;
+    case GLFW_KEY_DOWN:     return Key::Down;
+    case GLFW_KEY_LEFT:     return Key::Left;
+    case GLFW_KEY_RIGHT:    return Key::Right;
+    case GLFW_KEY_ESCAPE:   return Key::Escape;
+    case GLFW_KEY_ENTER:    return Key::Enter;
+    case GLFW_KEY_KP_ENTER: return Key::Enter; // the numpad one counts too
+    case GLFW_KEY_F11:      return Key::F11;
+    default:                return std::nullopt;
     }
+}
+
+// The monitor showing the biggest part of the window (the primary one if none does).
+// That's the one to go fullscreen on - the window may be on a second monitor.
+GLFWmonitor* _monitorUnder(GLFWwindow* window)
+{
+    int windowX = 0;
+    int windowY = 0;
+    int windowWidth = 0;
+    int windowHeight = 0;
+    glfwGetWindowPos(window, &windowX, &windowY);
+    glfwGetWindowSize(window, &windowWidth, &windowHeight);
+
+    int count = 0;
+    GLFWmonitor** const monitors = glfwGetMonitors(&count);
+
+    GLFWmonitor* best = glfwGetPrimaryMonitor();
+    int bestArea = 0;
+    for (GLFWmonitor* const monitor : std::span(monitors, static_cast<std::size_t>(count))) {
+        int monitorX = 0;
+        int monitorY = 0;
+        glfwGetMonitorPos(monitor, &monitorX, &monitorY);
+        const GLFWvidmode* const mode = glfwGetVideoMode(monitor);
+
+        // How much the two rectangles overlap (negative = they don't).
+        const int overlapWidth = std::min(windowX + windowWidth, monitorX + mode->width) - std::max(windowX, monitorX);
+        const int overlapHeight = std::min(windowY + windowHeight, monitorY + mode->height) - std::max(windowY, monitorY);
+        const int area = std::max(overlapWidth, 0) * std::max(overlapHeight, 0);
+        if (area > bestArea) {
+            best = monitor;
+            bestArea = area;
+        }
+    }
+    return best;
 }
 
 } // namespace
@@ -70,6 +111,9 @@ Window::Window(int width, int height, const char* title)
     glfwSetWindowUserPointer(m_window, this);
     glfwSetFramebufferSizeCallback(m_window, onFramebufferResized);
     glfwSetKeyCallback(m_window, onKey);
+
+    // Dragging the window's edges keeps width:height as created.
+    glfwSetWindowAspectRatio(m_window, width, height);
 }
 
 Window::~Window()
@@ -101,6 +145,36 @@ void Window::pollEvents()
 void Window::waitEvents()
 {
     glfwWaitEvents();
+}
+
+void Window::setFullscreen(bool fullscreen)
+{
+    if (fullscreen == m_fullscreen) {
+        return;
+    }
+
+    if (fullscreen) {
+        // Remember the windowed position and size, to restore them later.
+        ScreenRect& rect = m_windowedRect;
+        glfwGetWindowPos(m_window, &rect.x, &rect.y);
+        glfwGetWindowSize(m_window, &rect.width, &rect.height);
+
+        GLFWmonitor* const monitor = _monitorUnder(m_window);
+        int monitorX = 0;
+        int monitorY = 0;
+        glfwGetMonitorPos(monitor, &monitorX, &monitorY);
+        const GLFWvidmode* const mode = glfwGetVideoMode(monitor);
+
+        // No border, exactly covering the monitor. The monitor stays nullptr
+        // ("not a real fullscreen window"): that's what makes it borderless.
+        glfwSetWindowAttrib(m_window, GLFW_DECORATED, GLFW_FALSE);
+        glfwSetWindowMonitor(m_window, nullptr, monitorX, monitorY, mode->width, mode->height, GLFW_DONT_CARE);
+    } else {
+        const ScreenRect& rect = m_windowedRect;
+        glfwSetWindowAttrib(m_window, GLFW_DECORATED, GLFW_TRUE);
+        glfwSetWindowMonitor(m_window, nullptr, rect.x, rect.y, rect.width, rect.height, GLFW_DONT_CARE);
+    }
+    m_fullscreen = fullscreen;
 }
 
 bool Window::isMinimized() const

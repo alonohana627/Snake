@@ -3,11 +3,15 @@
 #include "snake/gfx/check.hpp"
 #include "snake/platform/window.hpp"
 
+#include <algorithm>
+#include <cmath>
+
 namespace snake::gfx {
 
 namespace {
 
-constexpr VkClearColorValue kBackgroundColor{.float32 = {0.05f, 0.05f, 0.07f, 1.0f}};
+// The bars around the canvas when the window's shape differs from it.
+constexpr VkClearColorValue kLetterboxColor{.float32 = {0.0f, 0.0f, 0.0f, 1.0f}};
 
 } // namespace
 
@@ -16,6 +20,26 @@ namespace { // helpers
 VkExtent2D _toExtent(core::Size size)
 {
     return {static_cast<std::uint32_t>(size.width), static_cast<std::uint32_t>(size.height)};
+}
+
+// The largest rectangle with the canvas's shape that fits the image, centered.
+// Whole pixels, so the canvas's edges stay sharp.
+VkViewport _letterbox(VkExtent2D image, core::Size canvas)
+{
+    const auto imageWidth = static_cast<float>(image.width);
+    const auto imageHeight = static_cast<float>(image.height);
+    const float scale = std::min(imageWidth / static_cast<float>(canvas.width),
+                                 imageHeight / static_cast<float>(canvas.height));
+    const float width = std::round(static_cast<float>(canvas.width) * scale);
+    const float height = std::round(static_cast<float>(canvas.height) * scale);
+    return {
+        .x = std::floor((imageWidth - width) / 2.0f),
+        .y = std::floor((imageHeight - height) / 2.0f),
+        .width = width,
+        .height = height,
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f,
+    };
 }
 
 // Records an image layout transition plus the synchronization around it:
@@ -56,6 +80,9 @@ Renderer::Renderer(platform::Window& window)
     , m_swapchain(m_device, m_surface, _toExtent(window.framebufferSize()))
     , m_rectPipeline(m_device, m_swapchain.format(), core::Shape::Rect)
     , m_snakeHeadPipeline(m_device, m_swapchain.format(), core::Shape::SnakeHead)
+    , m_foodPipeline(m_device, m_swapchain.format(), core::Shape::Food)
+    , m_backgroundPipeline(m_device, m_swapchain.format(), core::Shape::Background)
+    , m_glyphPipeline(m_device, m_swapchain.format(), core::Shape::Glyph)
     , m_frames{Frame(m_device), Frame(m_device)} // one per frame in flight
 {
 }
@@ -67,7 +94,7 @@ Renderer::~Renderer()
     m_device.waitIdle();
 }
 
-void Renderer::drawFrame(std::span<const core::Sprite> sprites)
+void Renderer::drawFrame(std::span<const core::Sprite> sprites, core::Size canvas)
 {
     if (m_window.takeResized()) {
         recreateSwapchain();
@@ -96,7 +123,7 @@ void Renderer::drawFrame(std::span<const core::Sprite> sprites)
     frame.reset();
 
     // 3. Record, 4. submit, 5. present.
-    recordCommands(frame.commandBuffer(), imageIndex, sprites);
+    recordCommands(frame.commandBuffer(), imageIndex, sprites, canvas);
     submit(frame, imageIndex);
     present(imageIndex);
 
@@ -116,14 +143,17 @@ void Renderer::recreateSwapchain()
 const SpritePipeline& Renderer::pipelineFor(core::Shape shape) const
 {
     switch (shape) {
-    case core::Shape::Rect:      return m_rectPipeline;
-    case core::Shape::SnakeHead: return m_snakeHeadPipeline;
+    case core::Shape::Rect:       return m_rectPipeline;
+    case core::Shape::SnakeHead:  return m_snakeHeadPipeline;
+    case core::Shape::Food:       return m_foodPipeline;
+    case core::Shape::Background: return m_backgroundPipeline;
+    case core::Shape::Glyph:      return m_glyphPipeline;
     }
     return m_rectPipeline;
 }
 
 void Renderer::recordCommands(VkCommandBuffer commandBuffer, std::uint32_t imageIndex,
-                              std::span<const core::Sprite> sprites) const
+                              std::span<const core::Sprite> sprites, core::Size canvas) const
 {
     const VkImage image = m_swapchain.image(imageIndex);
     const VkExtent2D extent = m_swapchain.extent();
@@ -148,7 +178,7 @@ void Renderer::recordCommands(VkCommandBuffer commandBuffer, std::uint32_t image
         .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,   // start by filling with clearValue
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE, // keep the result (we want to show it)
-        .clearValue = {.color = kBackgroundColor},
+        .clearValue = {.color = kLetterboxColor},
     };
     const VkRenderingInfo renderingInfo{
         .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
@@ -159,15 +189,15 @@ void Renderer::recordCommands(VkCommandBuffer commandBuffer, std::uint32_t image
     };
     vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
-    const VkViewport viewport{
-        .x = 0.0f,
-        .y = 0.0f,
-        .width = static_cast<float>(extent.width),
-        .height = static_cast<float>(extent.height),
-        .minDepth = 0.0f,
-        .maxDepth = 1.0f,
+    // The viewport is where on the image the shaders' -1..1 (normalized device
+    // coordinates) lands. The vertex shader maps the canvas to -1..1, so pointing the
+    // viewport at the letterbox rectangle scales and centers the whole canvas there.
+    // The scissor cuts off anything drawn outside it, keeping the black bars clean.
+    const VkViewport viewport = _letterbox(extent, canvas);
+    const VkRect2D scissor{
+        .offset = {static_cast<std::int32_t>(viewport.x), static_cast<std::int32_t>(viewport.y)},
+        .extent = {static_cast<std::uint32_t>(viewport.width), static_cast<std::uint32_t>(viewport.height)},
     };
-    const VkRect2D scissor{{0, 0}, extent};
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
@@ -180,7 +210,7 @@ void Renderer::recordCommands(VkCommandBuffer commandBuffer, std::uint32_t image
             pipeline.bind(commandBuffer);
             bound = &pipeline;
         }
-        pipeline.draw(commandBuffer, sprite, extent);
+        pipeline.draw(commandBuffer, sprite, canvas);
     }
 
     vkCmdEndRendering(commandBuffer);

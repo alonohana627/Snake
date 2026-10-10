@@ -1,16 +1,24 @@
 #include "snake/app/application.hpp"
 
 #include "snake/app/game_view.hpp"
+#include "snake/app/menu_view.hpp"
 
-#include <format>
 #include <optional>
+#include <random>
+#include <vector>
 
 namespace snake::app {
 
 namespace {
 
-constexpr int kWindowWidth = 1920;
-constexpr int kWindowHeight = 1080;
+// Everything is laid out on a fixed 16:9 canvas of this many pixels. The renderer
+// scales it to the window (1:1 at 1920x1080), with black bars if the window or
+// monitor isn't 16:9 - so the game looks the same windowed and fullscreen.
+constexpr core::Size kCanvas{.width = 1920, .height = 1080};
+
+// The window starts the size of the canvas.
+constexpr int kWindowWidth = kCanvas.width;
+constexpr int kWindowHeight = kCanvas.height;
 
 // The longest frame we simulate in full. Anything longer (e.g. while the window is
 // being dragged, Windows pauses our loop) counts as this long, so the game doesn't
@@ -36,13 +44,20 @@ std::optional<Direction> _toDirection(Key key)
     }
 }
 
+double _tickSeconds(Speed speed)
+{
+    return 1.0 / ticksPerSecond(speed);
+}
+
 } // namespace
 
 Application::Application()
     : m_window(kWindowWidth, kWindowHeight, "Snake")
     , m_renderer(m_window)
-    , m_ticks(game::kTickSeconds, kMaxFrameSeconds)
+    , m_game(std::random_device{}()) // a different seed (so different food spots) every run
+    , m_ticks(_tickSeconds(m_settings.speed), kMaxFrameSeconds)
 {
+    openMenu();
 }
 
 void Application::run()
@@ -71,36 +86,79 @@ void Application::run()
         }
 
         // Run the ticks that are due: 0, 1 or several, depending on frame rate vs tick rate.
-        for (int due = m_ticks.advance(m_window.time()); due > 0; --due) {
-            m_game.tick();
+        // In the menu the game is paused: no ticks at all.
+        if (m_screen == Screen::Playing) {
+            for (int due = m_ticks.advance(m_window.time()); due > 0; --due) {
+                m_game.tick();
+            }
         }
 
-        updateTitle();
-        m_renderer.drawFrame(gameDrawList(m_game, area));
+        std::vector<core::Sprite> sprites = gameDrawList(m_game, kCanvas);
+        if (m_screen == Screen::Menu) {
+            appendMenu(sprites, m_menu, m_settings, kCanvas);
+        }
+        m_renderer.drawFrame(sprites, kCanvas);
     }
 }
 
-// There's no text rendering yet, so the score is shown in the window title.
-void Application::updateTitle()
-{
-    if (m_game.score() == m_shownScore && m_game.bestScore() == m_shownBestScore) {
-        return;
-    }
-    m_shownScore = m_game.score();
-    m_shownBestScore = m_game.bestScore();
-    m_window.setTitle(std::format("Snake  |  Score: {}  |  Best: {}", m_shownScore, m_shownBestScore));
-}
-
-// Each key press, in order: Escape quits, arrows ask the snake to turn.
+// Each key press, in order. F11 works everywhere; other keys go to whatever is on
+// screen: in the game, arrows steer and Escape opens the menu.
 void Application::handleInput()
 {
     for (const Key key : m_window.takePressedKeys()) {
-        if (key == Key::Escape) {
-            m_window.close();
+        if (key == Key::F11) {
+            m_settings.fullscreen = !m_settings.fullscreen;
+            applySettings();
+        } else if (m_screen == Screen::Menu) {
+            handleMenuCommand(m_menu.handle(key, m_settings));
+        } else if (key == Key::Escape) {
+            openMenu();
         } else if (const std::optional<Direction> direction = _toDirection(key)) {
             m_game.turn(*direction);
         }
     }
+}
+
+void Application::handleMenuCommand(MenuCommand command)
+{
+    switch (command) {
+    case MenuCommand::None:
+        break;
+    case MenuCommand::Continue:
+        play();
+        break;
+    case MenuCommand::NewGame:
+        m_game.startOver();
+        play();
+        break;
+    case MenuCommand::Quit:
+        m_window.close();
+        break;
+    case MenuCommand::SettingsChanged:
+        applySettings();
+        break;
+    }
+}
+
+void Application::openMenu()
+{
+    m_screen = Screen::Menu;
+    m_menu.open(m_hasStarted);
+}
+
+void Application::play()
+{
+    m_screen = Screen::Playing;
+    m_hasStarted = true;
+    // Time spent in the menu isn't game time: start measuring from now.
+    m_ticks.reset(m_window.time());
+}
+
+// Make the window and the game's speed match m_settings.
+void Application::applySettings()
+{
+    m_window.setFullscreen(m_settings.fullscreen);
+    m_ticks.setStepSeconds(_tickSeconds(m_settings.speed));
 }
 
 } // namespace snake::app

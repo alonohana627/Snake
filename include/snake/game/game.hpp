@@ -3,16 +3,49 @@
 #include "snake/game/grid.hpp"
 #include "snake/game/snake.hpp"
 
-namespace snake::game {
+#include <cstdint>
+#include <optional>
+#include <random>
 
-// The game advances in fixed steps ("ticks"), independent of the frame rate.
-// The snake moves one cell per tick, so this is also its speed in cells per second.
-inline constexpr int kTicksPerSecond = 8;
-inline constexpr double kTickSeconds = 1.0 / kTicksPerSecond;
+namespace snake::game {
 
 // The board size, in cells.
 inline constexpr int kBoardWidth = 20;
 inline constexpr int kBoardHeight = 20;
+
+// The kinds of food. Bigger food is rarer, worth more, and makes the snake longer.
+enum class FoodType {
+    Small,
+    Medium,
+    Large,
+};
+
+// How many cells the snake grows when it eats this food.
+constexpr int growthOf(FoodType type)
+{
+    switch (type) {
+    case FoodType::Small:  return 1;
+    case FoodType::Medium: return 2;
+    case FoodType::Large:  return 3;
+    }
+    return 1;
+}
+
+// How many points this food is worth.
+constexpr int pointsOf(FoodType type)
+{
+    switch (type) {
+    case FoodType::Small:  return 1;
+    case FoodType::Medium: return 2;
+    case FoodType::Large:  return 3;
+    }
+    return 1;
+}
+
+struct Food {
+    Cell cell;
+    FoodType type = FoodType::Small;
+};
 
 // The game's rules and state - nothing else. It knows nothing about windows,
 // keys, pixels, colors or time: it's told to turn and to tick, and others read
@@ -21,33 +54,46 @@ inline constexpr int kBoardHeight = 20;
 // Rules:
 // - The snake moves one cell per tick and wraps around the board's edges.
 // - It must not run into itself. If it does, it starts over from the start.
-// - Score = whole seconds survived since the last start over.
+// - There's always one piece of food on a free cell (unless the board is full).
+//   Small is the most common, Large the rarest (see kFoodWeights in game.cpp).
+//   Eating it makes the snake growthOf(type) cells longer, adds pointsOf(type)
+//   to the score, and new food appears.
+// - Score = points from the food eaten since the last start over.
 class Game {
 public:
-    // A length-5 snake in the middle of the board, heading right.
-    Game();
+    // A length-5 snake in the middle of the board, heading right, and food.
+    // `seed` drives where food appears and which type: the same seed gives the same game.
+    explicit Game(std::uint32_t seed);
 
     // Ask the snake to turn. It happens on an upcoming tick.
     void turn(Direction direction);
 
-    // Advance by exactly one tick: the snake moves one cell, and if it ran
-    // into itself, the game starts over.
+    // Advance by exactly one tick: the snake moves one cell. If it ran into
+    // itself, the game starts over; if it reached the food, it eats it.
+    // How often to tick is up to the caller (it sets the snake's speed).
     void tick();
+
+    // Back to the start: a fresh snake, a zero score and new food. The best score is kept.
+    void startOver();
 
     const Snake& snake() const { return m_snake; }
 
-    // Whole seconds survived since the last start over. Every tick is exactly
-    // kTickSeconds long, so this comes from counting ticks - no clock needed.
-    int score() const { return m_ticksSurvived / kTicksPerSecond; }
+    // The food on the board. Empty only when the snake fills the whole board.
+    std::optional<Food> food() const { return m_food; }
+
+    // Points from the food eaten since the last start over.
+    int score() const { return m_score; }
 
     // The highest score so far.
     int bestScore() const { return m_bestScore; }
 
 private:
-    void startOver();
+    void spawnFood();
 
+    std::mt19937 m_random; // random number generator for food positions and types
     Snake m_snake;
-    int m_ticksSurvived = 0;
+    std::optional<Food> m_food;
+    int m_score = 0;
     int m_bestScore = 0;
 };
 

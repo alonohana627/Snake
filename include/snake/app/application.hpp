@@ -1,5 +1,7 @@
 #pragma once
 
+#include "snake/app/menu.hpp"
+#include "snake/app/settings.hpp"
 #include "snake/core/fixed_timestep.hpp"
 #include "snake/game/game.hpp"
 #include "snake/gfx/renderer.hpp"
@@ -7,8 +9,8 @@
 
 namespace snake::app {
 
-// Everything around the game: opens the window, runs the main loop, turns key
-// presses into game commands, ticks the game on time and draws it.
+// Everything around the game: opens the window, runs the main loop, routes key
+// presses to the menu or the game, ticks the game on time and draws it.
 class Application {
 public:
     Application();
@@ -16,23 +18,33 @@ public:
     Application(const Application&) = delete;
     Application& operator=(const Application&) = delete;
 
-    // Runs until the window is closed (or Escape is pressed).
+    // Runs until the window is closed (or Quit is picked in the menu).
     void run();
 
 private:
+    // What's on screen. The game only ticks while Playing; in the menu it's
+    // paused and drawn behind it.
+    enum class Screen {
+        Menu,
+        Playing,
+    };
+
     void handleInput();
-    void updateTitle();
+    void handleMenuCommand(MenuCommand command);
+    void openMenu();
+    void play();
+    void applySettings();
 
     // Members are created top to bottom and destroyed bottom to top:
     // the renderer goes before the window it draws into.
     platform::Window m_window;
     gfx::Renderer m_renderer;
     game::Game m_game;
+    Settings m_settings;
     core::FixedTimestep m_ticks;
-
-    // What the window title shows right now, so it's only changed when needed.
-    int m_shownScore = -1;
-    int m_shownBestScore = -1;
+    Menu m_menu;
+    Screen m_screen = Screen::Menu;
+    bool m_hasStarted = false; // a game has been started, so the menu can offer Continue
 };
 
 } // namespace snake::app
