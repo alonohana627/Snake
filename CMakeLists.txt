@@ -16,7 +16,9 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 option(SNAKE_BUILD_TESTS "Build the Snake test suite" OFF)
 
 include(cmake/CompilerWarnings.cmake)
+include(cmake/SnakeComponent.cmake)
 
+add_subdirectory(deps)
 add_subdirectory(src)
 
 if(SNAKE_BUILD_TESTS)
