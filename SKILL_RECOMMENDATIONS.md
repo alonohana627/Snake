@@ -23,11 +23,13 @@ Don't recommend these again (or anything they already cover):
 - `learning-mentor`
 - `shader-developer`
 - `software-architecture-developer`
+- `technical-docs-writer`
 - `vulkan-developer`
 - `vulkan-text-and-ui`
+- `windows-release-packaging`
 
 ## Recommended
 
 Highest value for the next steps first.
 
-Nothing right now - every skill this project has needed so far is installed.
+Nothing right now - every skill this project has needed is installed.
