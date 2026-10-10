@@ -1,6 +1,10 @@
 # Snake
 
-Toy project. C++26, CMake + Ninja, Vulkan 1.3 + GLFW.
+Toy project. C++26, CMake + Ninja, Vulkan 1.3 + GLFW, miniaudio.
+
+- **[INSTALL.md](INSTALL.md)** - what to install to build and run it.
+- **[DOCS/](DOCS/README.md)** - how it works: architecture, main loop, rules,
+  rendering, UI, audio, the save file, the build, conventions and how-to recipes.
 
 ## Layout
 
