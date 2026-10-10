@@ -76,7 +76,7 @@ void Menu::showMainPage(MenuItem selected)
 void Menu::showSettingsPage()
 {
     m_onSettingsPage = true;
-    m_items = {MenuItem::Fullscreen, MenuItem::Speed, MenuItem::Sound, MenuItem::Back};
+    m_items = {MenuItem::Fullscreen, MenuItem::Speed, MenuItem::Walls, MenuItem::Sound, MenuItem::Back};
     m_selected = 0;
 }
 
@@ -95,6 +95,7 @@ MenuCommand Menu::activate(MenuItem item, Settings& settings)
         return MenuCommand::None;
     case MenuItem::Fullscreen:
     case MenuItem::Speed:
+    case MenuItem::Walls:
     case MenuItem::Sound:
         return change(item, +1, settings); // Enter steps a setting forward, like Right
     }
@@ -110,6 +111,9 @@ MenuCommand Menu::change(MenuItem item, int step, Settings& settings)
         return MenuCommand::SettingsChanged;
     case MenuItem::Speed:
         settings.speed = _next(settings.speed, step, kSpeedCount);
+        return MenuCommand::SettingsChanged;
+    case MenuItem::Walls: // two choices: either direction flips it
+        settings.walls = settings.walls == game::Walls::Wrap ? game::Walls::Solid : game::Walls::Wrap;
         return MenuCommand::SettingsChanged;
     case MenuItem::Sound:
         settings.volume = _next(settings.volume, step, kVolumeCount);

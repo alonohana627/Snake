@@ -1,5 +1,7 @@
 #pragma once
 
+#include "snake/game/game.hpp"
+
 namespace snake::app {
 
 // How fast the snake moves. The game itself doesn't know about speed: it moves one
@@ -46,7 +48,10 @@ constexpr float amplitudeOf(Volume volume)
 struct Settings {
     bool fullscreen = false;
     Speed speed = Speed::Normal;
+    game::Walls walls = game::Walls::Wrap;
     Volume volume = Volume::Medium;
+
+    friend bool operator==(const Settings&, const Settings&) = default;
 };
 
 } // namespace snake::app

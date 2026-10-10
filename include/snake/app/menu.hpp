@@ -18,6 +18,7 @@ enum class MenuItem {
     // Settings page
     Fullscreen,
     Speed,
+    Walls, // wrap around or solid
     Sound, // sound volume
     Back,  // back to the main page
 };

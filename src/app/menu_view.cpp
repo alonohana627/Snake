@@ -47,6 +47,7 @@ std::string_view _labelOf(MenuItem item)
     case MenuItem::Quit:       return "QUIT";
     case MenuItem::Fullscreen: return "FULLSCREEN";
     case MenuItem::Speed:      return "SPEED";
+    case MenuItem::Walls:      return "WALLS";
     case MenuItem::Sound:      return "SOUND";
     case MenuItem::Back:       return "BACK";
     }
@@ -80,6 +81,7 @@ std::optional<std::string_view> _valueOf(MenuItem item, const Settings& settings
     switch (item) {
     case MenuItem::Fullscreen: return settings.fullscreen ? "ON" : "OFF";
     case MenuItem::Speed:      return _nameOf(settings.speed);
+    case MenuItem::Walls:      return settings.walls == game::Walls::Solid ? "SOLID" : "WRAP";
     case MenuItem::Sound:      return _nameOf(settings.volume);
     default:                   return std::nullopt;
     }

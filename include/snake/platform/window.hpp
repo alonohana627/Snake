@@ -33,6 +33,9 @@ public:
     Window(const Window&) = delete;
     Window& operator=(const Window&) = delete;
 
+    // The window starts hidden, centered on the main monitor. Call this once it's set up.
+    void show();
+
     bool shouldClose() const;
     void close();
 

@@ -28,6 +28,10 @@ constexpr core::Color kBackgroundColor{.r = 0.035f, .g = 0.06f, .b = 0.07f, .a =
 // The board: a dark grass checkerboard inside a mossy frame, so the bright snake
 // and fruit stand out on it.
 constexpr core::Color kFrameColor{.r = 0.06f, .g = 0.11f, .b = 0.07f, .a = 1.0f};
+// With solid walls the frame becomes a wall: cool grey stone, clearly lighter than the
+// mossy frame and a hue no actor uses (the snake is green, the fruit warm), so
+// "this edge is dangerous" reads at a glance - also without color vision, by value.
+constexpr core::Color kWallColor{.r = 0.17f, .g = 0.18f, .b = 0.21f, .a = 1.0f};
 constexpr core::Color kBoardColorA{.r = 0.03f, .g = 0.075f, .b = 0.035f, .a = 1.0f};
 constexpr core::Color kBoardColorB{.r = 0.04f, .g = 0.095f, .b = 0.045f, .a = 1.0f};
 
@@ -38,6 +42,7 @@ constexpr core::Color kSnakeHeadColor{.r = 0.25f, .g = 0.9f, .b = 0.35f, .a = 1.
 // it the frame covers. The rest is breathing room up to the window's edge.
 constexpr float kBoardMargin = 0.75f;
 constexpr float kFrameWidth = 0.3f;
+constexpr float kWallWidth = 0.45f; // solid walls are also thicker: a shape cue, not just color
 
 // Side panel text: muted labels, bright numbers.
 constexpr core::Color kLabelColor{.r = 0.3f, .g = 0.5f, .b = 0.32f, .a = 1.0f};
@@ -210,7 +215,11 @@ std::vector<core::Sprite> gameDrawList(const game::Game& game, core::Size canvas
         .color = kBackgroundColor,
         .shape = core::Shape::Background,
     });
-    sprites.push_back({.rect = _boardRect(layout, kFrameWidth), .color = kFrameColor});
+    const bool solidWalls = game.walls() == game::Walls::Solid;
+    sprites.push_back({
+        .rect = _boardRect(layout, solidWalls ? kWallWidth : kFrameWidth),
+        .color = solidWalls ? kWallColor : kFrameColor,
+    });
 
     for (int y = 0; y < kBoardHeight; ++y) {
         for (int x = 0; x < kBoardWidth; ++x) {

@@ -56,8 +56,15 @@ void Game::turn(Direction direction)
 
 void Game::tick()
 {
-    // No walls yet: leaving one side of the board brings the snake back on the other.
-    m_snake.stepTo(wrap(m_snake.nextHead(), kBoardWidth, kBoardHeight));
+    // At the edge: with solid walls the snake crashes into it (checked before
+    // moving, so it never leaves the board); otherwise it comes back on the other side.
+    const Cell next = m_snake.nextHead();
+    if (m_walls == Walls::Solid && !isInside(next, kBoardWidth, kBoardHeight)) {
+        startOver();
+        m_events.push_back({.type = EventType::Crashed});
+        return;
+    }
+    m_snake.stepTo(wrap(next, kBoardWidth, kBoardHeight));
 
     // The snake must not run into itself.
     if (m_snake.hasBittenItself()) {

@@ -48,4 +48,10 @@ constexpr Cell wrap(Cell cell, int width, int height)
     return {((cell.x % width) + width) % width, ((cell.y % height) + height) % height};
 }
 
+// Whether the cell is on a width x height board.
+constexpr bool isInside(Cell cell, int width, int height)
+{
+    return cell.x >= 0 && cell.x < width && cell.y >= 0 && cell.y < height;
+}
+
 } // namespace snake::game

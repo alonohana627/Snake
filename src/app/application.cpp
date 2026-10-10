@@ -3,6 +3,7 @@
 #include "snake/app/game_view.hpp"
 #include "snake/app/menu_view.hpp"
 
+#include <algorithm>
 #include <optional>
 #include <random>
 #include <vector>
@@ -57,9 +58,20 @@ Application::Application()
     , m_sounds(m_player)
     , m_game(std::random_device{}()) // a different seed (so different food spots) every run
     , m_ticks(_tickSeconds(m_settings.speed), kMaxFrameSeconds)
+    , m_savePath(saveFilePath())
+    , m_saved(loadSaveData(m_savePath))
 {
+    // Pick up where the last run left off: its settings and best score.
+    m_settings = m_saved.settings;
+    m_game.setBestScore(m_saved.bestScore);
+    if (!std::filesystem::exists(m_savePath)) {
+        saveSaveData(m_savePath, m_saved); // first run: create it, so it can be found and edited
+    }
     applySettings();
     openMenu();
+
+    // Only now, centered and (if the settings say so) already fullscreen.
+    m_window.show();
 }
 
 void Application::run()
@@ -94,7 +106,12 @@ void Application::run()
                 m_game.tick();
             }
         }
-        m_sounds.playGameEvents(m_game.takeEvents());
+        const std::vector<game::Event> events = m_game.takeEvents();
+        m_sounds.playGameEvents(events);
+        // A round ended: save now in case it was a new best (not on every food eaten).
+        if (std::ranges::contains(events, game::EventType::Crashed, &game::Event::type)) {
+            save();
+        }
 
         std::vector<core::Sprite> sprites = gameDrawList(m_game, kCanvas);
         if (m_screen == Screen::Menu) {
@@ -102,6 +119,8 @@ void Application::run()
         }
         m_renderer.drawFrame(sprites, kCanvas);
     }
+
+    save(); // the window is closing: keep the best score of the round in progress
 }
 
 // Each key press, in order. F11 works everywhere; other keys go to whatever is on
@@ -173,6 +192,7 @@ void Application::openMenu()
 {
     m_screen = Screen::Menu;
     m_menu.open(m_hasStarted);
+    save(); // pausing is a good moment, nothing is moving
 }
 
 void Application::play()
@@ -183,12 +203,25 @@ void Application::play()
     m_ticks.reset(m_window.time());
 }
 
-// Make the window, the game's speed and the volume match m_settings.
+// Make the window, the game's speed and walls, and the volume match m_settings.
 void Application::applySettings()
 {
+    m_game.setWalls(m_settings.walls);
     m_player.setMasterVolume(amplitudeOf(m_settings.volume));
     m_window.setFullscreen(m_settings.fullscreen);
     m_ticks.setStepSeconds(_tickSeconds(m_settings.speed));
+    save();
+}
+
+// Writes the settings and best score to the file - only if they changed since the last write.
+void Application::save()
+{
+    const SaveData current{.settings = m_settings, .bestScore = m_game.bestScore()};
+    if (current == m_saved) {
+        return;
+    }
+    saveSaveData(m_savePath, current);
+    m_saved = current; // even if writing failed: no point retrying (and warning) every time
 }
 
 } // namespace snake::app

@@ -86,6 +86,34 @@ GLFWmonitor* _monitorUnder(GLFWwindow* window)
     return best;
 }
 
+// Puts the window (with its border and title bar) in the middle of the main monitor's
+// work area - the part not covered by the taskbar. If it's taller than that, its
+// title bar stays on screen, so it can still be dragged.
+void _centerOnPrimaryMonitor(GLFWwindow* window)
+{
+    int areaX = 0;
+    int areaY = 0;
+    int areaWidth = 0;
+    int areaHeight = 0;
+    glfwGetMonitorWorkarea(glfwGetPrimaryMonitor(), &areaX, &areaY, &areaWidth, &areaHeight);
+
+    int width = 0;
+    int height = 0;
+    glfwGetWindowSize(window, &width, &height); // the inside
+    int left = 0;
+    int top = 0;
+    int right = 0;
+    int bottom = 0;
+    glfwGetWindowFrameSize(window, &left, &top, &right, &bottom); // the border around it
+
+    const int outerWidth = left + width + right;
+    const int outerHeight = top + height + bottom;
+    // glfwSetWindowPos places the inside's top-left corner, so add the border back.
+    const int x = areaX + (areaWidth - outerWidth) / 2 + left;
+    const int y = std::max(areaY + (areaHeight - outerHeight) / 2, areaY) + top;
+    glfwSetWindowPos(window, x, y);
+}
+
 } // namespace
 
 Window::Window(int width, int height, const char* title)
@@ -99,7 +127,10 @@ Window::Window(int width, int height, const char* title)
 
     // By default GLFW also creates an OpenGL context; we draw with Vulkan, so ask for none.
     // The size is the inside (client area) - GLFW accounts for borders itself.
+    // Hidden at first: it's moved to the middle of the monitor (and maybe made
+    // fullscreen) before anyone sees it - see show().
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
     m_window = glfwCreateWindow(width, height, title, nullptr, nullptr);
     if (m_window == nullptr) {
         glfwTerminate();
@@ -114,6 +145,13 @@ Window::Window(int width, int height, const char* title)
 
     // Dragging the window's edges keeps width:height as created.
     glfwSetWindowAspectRatio(m_window, width, height);
+
+    _centerOnPrimaryMonitor(m_window);
+}
+
+void Window::show()
+{
+    glfwShowWindow(m_window);
 }
 
 Window::~Window()

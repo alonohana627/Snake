@@ -5,9 +5,10 @@ snake_add_component(app
     game_view.cpp
     menu.cpp
     menu_view.cpp
+    save_data.cpp
     sounds.cpp
     text.cpp
 )
 target_link_libraries(snake_app
-    PUBLIC snake::core snake::platform snake::gfx snake::audio snake::game
+    PUBLIC snake::core snake::platform snake::gfx snake::audio snake::storage snake::game
 )

@@ -10,10 +10,11 @@ Each component is a static library (`snake::<name>`), with headers in
 | Component  | What it does                                                      | Uses                        |
 |------------|-------------------------------------------------------------------|-----------------------------|
 | `game`     | The game logic: board, snake, food, rules, score                  | nothing                     |
-| `app`      | Everything else: main loop, menu, settings, text, looks, sounds   | game, gfx, audio, platform, core |
+| `app`      | Everything else: main loop, menu, settings, text, looks, sounds   | game, gfx, audio, storage, platform, core |
 | `gfx`      | Vulkan renderer, shaders in `src/gfx/shaders/`                    | core, platform              |
 | `platform` | Window + keyboard (GLFW)                                          | core                        |
 | `audio`    | 8-bit sound synth + playback (miniaudio)                          | nothing                     |
+| `storage`  | User data folder, safe (atomic) file writes, INI format           | nothing                     |
 | `core`     | Shared types (`Rect`, `Color`), `FixedTimestep`                   | nothing                     |
 
 `src/main.cpp` only creates the `app::Application` and runs it.
@@ -32,6 +33,11 @@ monitor, with black bars when the shape doesn't match.
 
 All sounds are generated in code at startup (square, triangle and noise waves, like
 an 8-bit console) - there are no audio files. Settings > Sound sets the volume.
+
+Settings and the best score are saved in `snake.ini` in your user data folder
+(Windows: `%APPDATA%\Snake`, Linux: `~/.local/share/Snake`, macOS:
+`~/Library/Application Support/Snake`). It's plain text; edit it while the game
+is closed. Set `SNAKE_DATA_DIR` to use another folder (e.g. for testing).
 
 ## Build
 
