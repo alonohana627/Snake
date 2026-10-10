@@ -10,17 +10,20 @@ namespace {
 
 using platform::Key;
 
-constexpr int kSpeedCount = 3; // Slow, Normal, Fast
+constexpr int kSpeedCount = 3;  // Slow, Normal, Fast
+constexpr int kVolumeCount = 4; // Off, Low, Medium, High
 
 } // namespace
 
 namespace { // helpers
 
-// `speed` moved `step` places along Slow, Normal, Fast, wrapping around at both ends.
-Speed _nextSpeed(Speed speed, int step)
+// An enum value moved `step` places along its `count` values, wrapping around at both
+// ends (e.g. Speed: Fast + 1 = Slow).
+template <typename Enum>
+Enum _next(Enum value, int step, int count)
 {
-    const int index = (std::to_underlying(speed) + step + kSpeedCount) % kSpeedCount;
-    return static_cast<Speed>(index);
+    const int index = (std::to_underlying(value) + step + count) % count;
+    return static_cast<Enum>(index);
 }
 
 } // namespace
@@ -73,7 +76,7 @@ void Menu::showMainPage(MenuItem selected)
 void Menu::showSettingsPage()
 {
     m_onSettingsPage = true;
-    m_items = {MenuItem::Fullscreen, MenuItem::Speed, MenuItem::Back};
+    m_items = {MenuItem::Fullscreen, MenuItem::Speed, MenuItem::Sound, MenuItem::Back};
     m_selected = 0;
 }
 
@@ -92,6 +95,7 @@ MenuCommand Menu::activate(MenuItem item, Settings& settings)
         return MenuCommand::None;
     case MenuItem::Fullscreen:
     case MenuItem::Speed:
+    case MenuItem::Sound:
         return change(item, +1, settings); // Enter steps a setting forward, like Right
     }
     return MenuCommand::None;
@@ -105,7 +109,10 @@ MenuCommand Menu::change(MenuItem item, int step, Settings& settings)
         settings.fullscreen = !settings.fullscreen; // on/off: either direction flips it
         return MenuCommand::SettingsChanged;
     case MenuItem::Speed:
-        settings.speed = _nextSpeed(settings.speed, step);
+        settings.speed = _next(settings.speed, step, kSpeedCount);
+        return MenuCommand::SettingsChanged;
+    case MenuItem::Sound:
+        settings.volume = _next(settings.volume, step, kVolumeCount);
         return MenuCommand::SettingsChanged;
     default:
         return MenuCommand::None;

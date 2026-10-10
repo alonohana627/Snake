@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <optional>
 #include <random>
+#include <vector>
 
 namespace snake::game {
 
@@ -45,6 +46,19 @@ constexpr int pointsOf(FoodType type)
 struct Food {
     Cell cell;
     FoodType type = FoodType::Small;
+};
+
+// Something that happened during a tick. The game only reports it; whoever shows
+// the game decides what it looks or sounds like (e.g. a sound when food is eaten).
+enum class EventType {
+    Moved,   // the snake moved one cell (every tick, unless it crashed)
+    Ate,     // it ate food
+    Crashed, // it ran into itself, and the game started over
+};
+
+struct Event {
+    EventType type = EventType::Moved;
+    FoodType food = FoodType::Small; // Ate only: what was eaten
 };
 
 // The game's rules and state - nothing else. It knows nothing about windows,
@@ -87,6 +101,9 @@ public:
     // The highest score so far.
     int bestScore() const { return m_bestScore; }
 
+    // What happened in the ticks since the last call, oldest first. Reading them clears them.
+    std::vector<Event> takeEvents();
+
 private:
     void spawnFood();
 
@@ -95,6 +112,7 @@ private:
     std::optional<Food> m_food;
     int m_score = 0;
     int m_bestScore = 0;
+    std::vector<Event> m_events;
 };
 
 } // namespace snake::game

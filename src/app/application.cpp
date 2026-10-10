@@ -54,9 +54,11 @@ double _tickSeconds(Speed speed)
 Application::Application()
     : m_window(kWindowWidth, kWindowHeight, "Snake")
     , m_renderer(m_window)
+    , m_sounds(m_player)
     , m_game(std::random_device{}()) // a different seed (so different food spots) every run
     , m_ticks(_tickSeconds(m_settings.speed), kMaxFrameSeconds)
 {
+    applySettings();
     openMenu();
 }
 
@@ -92,6 +94,7 @@ void Application::run()
                 m_game.tick();
             }
         }
+        m_sounds.playGameEvents(m_game.takeEvents());
 
         std::vector<core::Sprite> sprites = gameDrawList(m_game, kCanvas);
         if (m_screen == Screen::Menu) {
@@ -110,12 +113,38 @@ void Application::handleInput()
             m_settings.fullscreen = !m_settings.fullscreen;
             applySettings();
         } else if (m_screen == Screen::Menu) {
-            handleMenuCommand(m_menu.handle(key, m_settings));
+            handleMenuKey(key);
         } else if (key == Key::Escape) {
             openMenu();
+            m_sounds.play(Sfx::MenuBack);
         } else if (const std::optional<Direction> direction = _toDirection(key)) {
             m_game.turn(*direction);
         }
+    }
+}
+
+// A key in the menu: let the menu handle it, act on the result, and play the
+// matching sound (after acting, so e.g. a new volume is heard right away).
+void Application::handleMenuKey(Key key)
+{
+    const int selectedBefore = m_menu.selected();
+    const bool onSettingsBefore = m_menu.onSettingsPage();
+
+    const MenuCommand command = m_menu.handle(key, m_settings);
+    handleMenuCommand(command);
+
+    switch (command) {
+    case MenuCommand::None:
+        if (m_menu.onSettingsPage() != onSettingsBefore) {
+            m_sounds.play(m_menu.onSettingsPage() ? Sfx::MenuSelect : Sfx::MenuBack);
+        } else if (m_menu.selected() != selectedBefore) {
+            m_sounds.play(Sfx::MenuMove);
+        }
+        break;
+    case MenuCommand::Continue:        m_sounds.play(Sfx::MenuSelect); break;
+    case MenuCommand::NewGame:         m_sounds.play(Sfx::Start); break;
+    case MenuCommand::SettingsChanged: m_sounds.play(Sfx::MenuMove); break;
+    case MenuCommand::Quit:            break; // the window closes; a sound would be cut off
     }
 }
 
@@ -154,9 +183,10 @@ void Application::play()
     m_ticks.reset(m_window.time());
 }
 
-// Make the window and the game's speed match m_settings.
+// Make the window, the game's speed and the volume match m_settings.
 void Application::applySettings()
 {
+    m_player.setMasterVolume(amplitudeOf(m_settings.volume));
     m_window.setFullscreen(m_settings.fullscreen);
     m_ticks.setStepSeconds(_tickSeconds(m_settings.speed));
 }

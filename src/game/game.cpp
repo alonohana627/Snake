@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <iterator>
+#include <utility>
 #include <vector>
 
 namespace snake::game {
@@ -61,17 +62,25 @@ void Game::tick()
     // The snake must not run into itself.
     if (m_snake.hasBittenItself()) {
         startOver();
+        m_events.push_back({.type = EventType::Crashed});
         return;
     }
+    m_events.push_back({.type = EventType::Moved});
 
     // Eating: longer by the food's growth (the tail stays put for that many steps),
     // its points added to the score, and new food.
     if (m_food && m_snake.head() == m_food->cell) {
         m_snake.grow(growthOf(m_food->type));
         m_score += pointsOf(m_food->type);
+        m_events.push_back({.type = EventType::Ate, .food = m_food->type});
         m_bestScore = std::max(m_bestScore, m_score);
         spawnFood();
     }
+}
+
+std::vector<Event> Game::takeEvents()
+{
+    return std::exchange(m_events, {});
 }
 
 // Back to the start: a fresh snake (no queued turns either), a zero score and

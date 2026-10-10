@@ -18,7 +18,8 @@ enum class MenuItem {
     // Settings page
     Fullscreen,
     Speed,
-    Back, // back to the main page
+    Sound, // sound volume
+    Back,  // back to the main page
 };
 
 // What the application should do after the menu handled a key.

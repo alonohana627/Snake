@@ -10,9 +10,10 @@ Each component is a static library (`snake::<name>`), with headers in
 | Component  | What it does                                                      | Uses                        |
 |------------|-------------------------------------------------------------------|-----------------------------|
 | `game`     | The game logic: board, snake, food, rules, score                  | nothing                     |
-| `app`      | Everything else: main loop, menu, settings, text, how it looks    | game, gfx, platform, core   |
+| `app`      | Everything else: main loop, menu, settings, text, looks, sounds   | game, gfx, audio, platform, core |
 | `gfx`      | Vulkan renderer, shaders in `src/gfx/shaders/`                    | core, platform              |
 | `platform` | Window + keyboard (GLFW)                                          | core                        |
+| `audio`    | 8-bit sound synth + playback (miniaudio)                          | nothing                     |
 | `core`     | Shared types (`Rect`, `Color`), `FixedTimestep`                   | nothing                     |
 
 `src/main.cpp` only creates the `app::Application` and runs it.
@@ -29,9 +30,12 @@ Each component is a static library (`snake::<name>`), with headers in
 The game is drawn on a 1920x1080 (16:9) canvas, scaled to fit the window or
 monitor, with black bars when the shape doesn't match.
 
+All sounds are generated in code at startup (square, triangle and noise waves, like
+an 8-bit console) - there are no audio files. Settings > Sound sets the volume.
+
 ## Build
 
-GLFW lives in `deps/glfw` as a git submodule. After cloning:
+GLFW (`deps/glfw`) and miniaudio (`deps/miniaudio`) are git submodules. After cloning:
 
 ```bash
 git submodule update --init

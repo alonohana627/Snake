@@ -2,6 +2,8 @@
 
 #include "snake/app/menu.hpp"
 #include "snake/app/settings.hpp"
+#include "snake/app/sounds.hpp"
+#include "snake/audio/player.hpp"
 #include "snake/core/fixed_timestep.hpp"
 #include "snake/game/game.hpp"
 #include "snake/gfx/renderer.hpp"
@@ -10,7 +12,7 @@
 namespace snake::app {
 
 // Everything around the game: opens the window, runs the main loop, routes key
-// presses to the menu or the game, ticks the game on time and draws it.
+// presses to the menu or the game, ticks the game on time, draws it and plays its sounds.
 class Application {
 public:
     Application();
@@ -30,6 +32,7 @@ private:
     };
 
     void handleInput();
+    void handleMenuKey(platform::Key key);
     void handleMenuCommand(MenuCommand command);
     void openMenu();
     void play();
@@ -39,6 +42,8 @@ private:
     // the renderer goes before the window it draws into.
     platform::Window m_window;
     gfx::Renderer m_renderer;
+    audio::Player m_player;
+    Sounds m_sounds; // uses m_player, so it comes after it
     game::Game m_game;
     Settings m_settings;
     core::FixedTimestep m_ticks;

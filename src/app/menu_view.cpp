@@ -47,6 +47,7 @@ std::string_view _labelOf(MenuItem item)
     case MenuItem::Quit:       return "QUIT";
     case MenuItem::Fullscreen: return "FULLSCREEN";
     case MenuItem::Speed:      return "SPEED";
+    case MenuItem::Sound:      return "SOUND";
     case MenuItem::Back:       return "BACK";
     }
     return "";
@@ -62,12 +63,24 @@ std::string_view _nameOf(Speed speed)
     return "";
 }
 
+std::string_view _nameOf(Volume volume)
+{
+    switch (volume) {
+    case Volume::Off:    return "OFF";
+    case Volume::Low:    return "LOW";
+    case Volume::Medium: return "MEDIUM";
+    case Volume::High:   return "HIGH";
+    }
+    return "";
+}
+
 // The setting's current value, for items that are settings.
 std::optional<std::string_view> _valueOf(MenuItem item, const Settings& settings)
 {
     switch (item) {
     case MenuItem::Fullscreen: return settings.fullscreen ? "ON" : "OFF";
     case MenuItem::Speed:      return _nameOf(settings.speed);
+    case MenuItem::Sound:      return _nameOf(settings.volume);
     default:                   return std::nullopt;
     }
 }

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.28)
 
 project(Snake
     VERSION 0.1.0
-    LANGUAGES CXX
+    LANGUAGES C CXX # C: the dependencies (GLFW, miniaudio) are written in C
 )
 
 set(CMAKE_CXX_STANDARD 26)
